@@ -4,6 +4,7 @@ using EmployeeManager.Data.Entities;
 using EmployeeManager.Data.Repositories;
 using EmployeeManager.Models;
 using EmployeeManager.ViewModels.Base;
+using Microsoft.Data.SqlClient;
 using System;
 using System.CodeDom.Compiler;
 using System.Collections.Generic;
@@ -22,7 +23,7 @@ namespace EmployeeManager.ViewModels
     /// </summary>
     internal class EmployeeViewModel : ViewModel
     {
-        private MainConnector connector;
+        public MainConnector connector;
         private EmployeeRepository employeeRepository;
         /// <summary>
         /// Все должности
@@ -42,30 +43,15 @@ namespace EmployeeManager.ViewModels
             "Показать сотрудников выбранного отдела",
             "Добавить нового сотрудника"
             };
-
             //свойство-объект команды инициализируется, передаются параметры методов(исполняющий метод и разрешающий)
             ExecuteCommand = new LambdaCommand(OnExecuteCommandExecuted, CanExecuteCommandExecuted);
             CloseWindowCommand = new LambdaCommand(OnCloseWindowCommandExecuted, CanCloseWindowCommandExecuted);
             this.GetData();
+            
         }
 
 
         #region Методы
-        //Подключение к базе
-        internal void Connect()
-        {
-            var result = connector.Connect();
-
-            if (result)
-            {
-
-                employeeRepository = new EmployeeRepository(connector);
-            }
-            else
-            {
-                MessageBox.Show("Ошибка подключения к базе!");
-            }
-        }
         /// <summary>
         /// Привести dataTable к списку EmployeesInfo
         /// </summary>
@@ -102,14 +88,30 @@ namespace EmployeeManager.ViewModels
         /// <summary>
         /// Вытащить все данные
         /// </summary>
-        public void GetData()
+        public async void GetData()
         {
+            // Создаем экземпляр коннектора и открываем соединение там, где нужно вытащить данные
             connector = new MainConnector();
-            this.Connect();
+            var result = await connector.ConnectAsync();
+            // Можно ещё как-то так. но это не точно
+            //using (SqlConnection cn = new SqlConnection(ConnectionString.MsSqlConnection))
+            //{
+               
+            //}
+            if (result)
+            {
+
+                MessageBox.Show("Подключение открыто!");
+            }
+            else
+            {
+                MessageBox.Show("Ошибка подключения к базе!");
+            }
+            employeeRepository = new EmployeeRepository(connector);
             this.GetEmployeesInfo();
-            
             //Вызываем метод репозитория
             var deps = employeeRepository.SelectAll("Departments");
+            
             //Промежуточный список
             var depsData = new List<Department>();
             foreach (DataRow dep in deps.Rows)
@@ -119,6 +121,8 @@ namespace EmployeeManager.ViewModels
             Departments = depsData;
 
             var poss = employeeRepository.SelectAll("Positions");
+            // Закрываем соединение тоже здесь, после получения всех данных
+            connector.Disconnect();
             var possData = new List<Position>();
             foreach (DataRow pos in poss.Rows)
             {
@@ -126,13 +130,8 @@ namespace EmployeeManager.ViewModels
             }
             positionsFromDB = possData;
             Positions = possData;
-            this.Disconnect();
         }
-        //Отключение от базы
-        internal void Disconnect()
-        {
-            connector.Disconnect();
-        }
+        
         #endregion
 
         //Свойства с реализацией интерфейса INotifyPropertyChanged для привязки к элементам формы. См. базовый класс ViewModel
@@ -259,9 +258,9 @@ namespace EmployeeManager.ViewModels
         /// Основная команда для всех действий
         /// </summary>
         public ICommand ExecuteCommand { get; }
-        public void OnExecuteCommandExecuted(object p)
+        public async void OnExecuteCommandExecuted(object p)
         {
-            connector.Connect();
+            await connector.ConnectAsync();
             switch (SelectedCommand)
             {
                 case "Поиск сотрудника по Id":

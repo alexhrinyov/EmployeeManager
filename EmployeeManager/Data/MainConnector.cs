@@ -11,13 +11,13 @@ namespace EmployeeManager.Data
     public class MainConnector
     {
         private SqlConnection connection;
-        public  bool Connect()
+        public async Task<bool> ConnectAsync()
         {
             bool result;
             try
             {
                 connection = new SqlConnection(ConnectionString.MsSqlConnection);
-                connection.Open();
+                await connection.OpenAsync();
                 result = true;
             }
             catch
@@ -41,13 +41,13 @@ namespace EmployeeManager.Data
         {
             if (connection.State == ConnectionState.Open)
             {
-                
                 return connection;
             }
             else
             {
-                throw new Exception("Подключение уже закрыто!");
+                throw new Exception("error!");
             }
+            
         }
 
     }
